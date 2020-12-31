@@ -1,0 +1,48 @@
+{
+  "short_name": "Campagnes",
+  "name": "Campagnes 2021",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "background_color": "#053e55",
+  "theme_color": "#005480",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": true,
+  "gcm_sender_id": "130790006665",
+  "icons": [
+    {
+      "src": "/img/icons/Icon-72.png",
+      "type": "image/png",
+      "sizes": "72x72"
+    },
+    {
+      "src": "/img/icons/Icon-114.png",
+      "type": "image/png",
+      "sizes": "114x114"
+    },
+    {
+      "src": "/img/icons/Icon-144.png",
+      "type": "image/png",
+      "sizes": "144x144",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/icons/Icon-152.png",
+      "type": "image/png",
+      "sizes": "152x152",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/icons/Icon-256.png",
+      "type": "image/png",
+      "sizes": "256x256",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/icons/Icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
