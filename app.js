@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var port = process.env.PORT || 3000;
+const http = require("http");
 const https = require("https");
 const fs = require("fs");
 var favicon = require('serve-favicon');
@@ -8,6 +9,75 @@ const webpush = require('web-push');
 
 const path = require('path');
 const bodyParser = require("body-parser");
+
+//var https = require('follow-redirects').https;
+//var fs = require('fs');
+
+
+fetch_tgtg_fav = function () {
+
+	var now = new Date();
+
+	if (now.getHours()<9){
+		return
+	}
+
+	var options = {
+		'method': 'POST',
+		'hostname': 'apptoogoodtogo.com',
+		'path': '/api/item/v6/',
+		'headers': {
+			'Authorization': 'Bearer e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwMjE2NTI0LCJ0IjoiZXF5S0hveGFUeTJyQVRBMUcycEZSUTowOjEifQ.tGzjxlCA-uTCPIiBGfrq8iVxFK9LwiTAFMeg4-3narg',
+			'Content-Type': 'application/json'
+		},
+		'maxRedirects': 20
+	};
+
+	var req = https.request(options, function (res) {
+		var chunks = [];
+
+		res.on("data", function (chunk) {
+			chunks.push(chunk);
+		});
+
+		res.on("end", function (chunk) {
+			var body = Buffer.concat(chunks);
+			//console.log(body.toString());
+			items = JSON.parse(body.toString()).items;
+			//console.log(items[0].display_name);
+			stores_available = "";
+			console.log(Date());
+			for (let index = 0; index < items.length; index++) {
+				const store = items[index];
+				console.log(store.display_name + " => " + store.items_available);
+				if (store.items_available) {
+					stores_available = stores_available + "; " + store.display_name;
+					if (store.display_name.split(" ")[0] == "Pomponette") {
+						subs.forEach(pushSubscription => {
+							webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
+						});
+					}
+				}
+			}
+			/*subs.forEach(pushSubscription => {
+				webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: stores_available }));
+			});*/
+		});
+
+		res.on("error", function (error) {
+			console.error(error);
+		});
+	});
+
+	var postData = JSON.stringify({ "user_id": "9173126", "origin": { "latitude": 45.75190208790065, "longitude": 4.830272620720394 }, "radius": 30, "page_size": 100, "page": 1, "discover": false, "favorites_only": true, "item_categories": [], "diet_categories": [], "pickup_earliest": null, "pickup_latest": null, "search_phrase": null, "with_stock_only": false, "hidden_only": false, "we_care_only": false });
+
+	req.write(postData);
+
+	req.end();
+}
+
+setInterval(fetch_tgtg_fav, 20 * 60 * 1000);
+
 
 
 //connection.end();
@@ -113,6 +183,7 @@ app.post('/login', function (req, res) {
 
 
 var server = https.createServer({ key: fs.readFileSync('ssl/server.key'), cert: fs.readFileSync('ssl/server.crt') }, app);
+//var server = http.createServer(app);
 
 //app.listen(port);
 

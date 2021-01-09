@@ -109,10 +109,14 @@ self.addEventListener('push', (event) => {
     console.log(cache);
     console.log("in wait until function");
     var data = { body: 'mybody', title: 'mytitle' };
-    /* if (event.data) {
+    console.log(event);
+    console.log(event.body);
+    console.log(event.data);
+     if (event.data) {
        data = event.data.json();
-       console.log("data event");
-     } else {*/
+       console.log("data event:");
+       console.log(data);
+     }// else {
     console.log("not data event");
     //data.body = "data body";
     //data.title = "data title";
