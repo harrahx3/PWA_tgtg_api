@@ -28,7 +28,7 @@ const requestNotificationPermission = async () => {
     if(permission !== 'granted'){
         console.log('Permission not granted for Notification');
     } else {
-	    console.log("Permission granted for Notification");
+	console.log("Permission granted for Notification");
     }
 }
 

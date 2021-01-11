@@ -13,6 +13,9 @@ const bodyParser = require("body-parser");
 //var https = require('follow-redirects').https;
 //var fs = require('fs');
 
+console.log("\n sg tgtg start");
+console.log(Date());
+console.log("\n");
 
 fetch_tgtg_fav = function () {
 
@@ -27,7 +30,7 @@ fetch_tgtg_fav = function () {
 		'hostname': 'apptoogoodtogo.com',
 		'path': '/api/item/v6/',
 		'headers': {
-			'Authorization': 'Bearer e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwMjE2NTI0LCJ0IjoiZXF5S0hveGFUeTJyQVRBMUcycEZSUTowOjEifQ.tGzjxlCA-uTCPIiBGfrq8iVxFK9LwiTAFMeg4-3narg',
+			'Authorization': 'Bearer e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwNDAwMDcxLCJ0IjoiVVZnUkI0cEdURENhbTlUaVFKNFVfZzowOjEifQ.3zrv59-EWxPmcJMifCgGO3_my5M7pEVS4C-7JQ7EJok',
 			'Content-Type': 'application/json'
 		},
 		'maxRedirects': 20
@@ -41,23 +44,30 @@ fetch_tgtg_fav = function () {
 		});
 
 		res.on("end", function (chunk) {
+			console.log('\n'+Date()+'\n');
 			var body = Buffer.concat(chunks);
-			//console.log(body.toString());
+			console.log("response body:");
+			console.log(body.toString().substring(0, 50));
 			items = JSON.parse(body.toString()).items;
 			//console.log(items[0].display_name);
 			stores_available = "";
-			console.log(Date());
-			for (let index = 0; index < items.length; index++) {
-				const store = items[index];
-				console.log(store.display_name + " => " + store.items_available);
-				if (store.items_available) {
-					stores_available = stores_available + "; " + store.display_name;
-					if (store.display_name.split(" ")[0] == "Pomponette") {
-						subs.forEach(pushSubscription => {
-							webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
-						});
+			if (items) {
+				for (let index = 0; index < items.length; index++) {
+					const store = items[index];
+					console.log(store.display_name + " => " + store.items_available);
+					if (store.items_available) {
+						stores_available = stores_available + "; " + store.display_name;
+						if (store.display_name.split(" ")[0] == "Pomponette") {
+							subs.forEach(pushSubscription => {
+								webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
+							});
+						}
 					}
 				}
+			} else if (JSON.parse(body.toString()).status == 401) {
+							subs.forEach(pushSubscription => {
+								webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'tgtg error !', body: JSON.parse(body.toString()).message }));
+							});
 			}
 			/*subs.forEach(pushSubscription => {
 				webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: stores_available }));
@@ -103,6 +113,20 @@ app.set('view engine', 'ejs');
 
 var subs = [];
 
+// read JSON object from file
+fs.readFile('subs.json', 'utf-8', (err, data) => {
+    if (err) {
+        throw err;
+    }
+
+    // parse JSON object
+    subs = JSON.parse(data.toString());
+
+    // print JSON object
+    console.log("subs from subs.json: ")
+    console.log(subs);
+});
+
 // VAPID keys should only be generated only once.
 //const vapidKeys = webpush.generateVAPIDKeys();
 const vapidKeys = {
@@ -127,8 +151,26 @@ app.get('/', function (req, res) {
 app.post('/subscribe', (req, res) => {
 	console.log('/subscribe');
 	console.log(req.body);
-	if ((!(JSON.parse(req.body.content) in subs))) {
+	var addsub = true;
+	if (req.body.content) {
+	subs.forEach(sub => {
+		if (JSON.stringify(sub) == req.body.content){
+			addsub = false;
+		}
+	});
+	if (addsub) {
 		subs.push(JSON.parse(req.body.content));
+
+		// convert JSON object to string
+		const data = JSON.stringify(subs);
+		// write JSON string to a file
+		fs.writeFile('subs.json', data, (err) => {
+			if (err) {
+		        	throw err;
+			}
+			console.log("subs JSON data is saved.");
+		});
+	}
 	}
 	res.send(req.body);
 });
@@ -138,7 +180,7 @@ app.post('/broadcast_notif', (req, res) => {
 	console.log(req.body);
 	console.log(subs);
 	subs.forEach(pushSubscription => {
-		webpush.sendNotification(pushSubscription, 'Your Push Payload Text');
+		webpush.sendNotification(pushSubscription, JSON.stringify({title: "tgtg broadcast notif", body: "broadcast notif"}));
 	});
 });
 
