@@ -64,22 +64,24 @@ var tokens = {
 };
 
 function refresh_token(old_refresh_token) {
-	var options = {
-		'method': 'POST',
-		'url': 'https://apptoogoodtogo.com/api/auth/v1/token/refresh',
-		'headers': {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ "refresh_token": old_refresh_token })
-	};
-	request(options, function (error, response) {
-		console.log('\n refresh token');
-		console.log(Date());
-		console.log('\n');
-		if (error) console.error(error);//throw new Error(error);
-		console.log(response.body.substring(0, 100));
-		return response.body;
-	});
+	return new Promise((resolve, reject) => {
+		var options = {
+			'method': 'POST',
+			'url': 'https://apptoogoodtogo.com/api/auth/v1/token/refresh',
+			'headers': {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ "refresh_token": old_refresh_token })
+		};
+		request(options, function (error, response) {
+			console.log('\n refresh token');
+			console.log(Date());
+			console.log('\n');
+			if (error) console.error(error);//throw new Error(error);
+			console.log(response.body.substring(0, 100));
+			resolve(response.body);
+		});
+	})
 
 }
 
@@ -107,10 +109,10 @@ function fetch_favorite(access_token) {
 }
 
 
-async function fetch_and_notif_fav(access_token) {
+async function fetch_and_notif_fav() {
 	console.log('\n' + Date() + '\n');
 
-	var items = await fetch_favorite(access_token)
+	var items = await fetch_favorite(tokens.access_token)
 		.then(JSON.parse)
 		.then(function (fav) {
 			console.log('fav:\n' + fav);
@@ -127,114 +129,133 @@ async function fetch_and_notif_fav(access_token) {
 	console.log(items[0].display_name);
 
 	stores_available = "";
-	for (let index = 0; index < items.length; index++) {
-		const store = items[index];
-		console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
-		if (store.items_available) {
-			stores_available = stores_available + "; " + store.display_name;
-			if (store.display_name.split(" ")[0] == "Pomponette") {
-				subs.forEach(pushSubscription => {
-					webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
+	if (items) {
+		for (let index = 0; index < items.length; index++) {
+			const store = items[index];
+			console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
+			if (store.items_available) {
+				stores_available = stores_available + "; " + store.display_name;
+				if (store.display_name.split(" ")[0] == "Pomponette") {
+					subs.forEach(pushSubscription => {
+						webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
+					});
+				}
+			}
+		}
+	} else if (JSON.parse(body.toString()).status == 401) {
+		subs.forEach(pushSubscription => {
+			webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'tgtg error !', body: JSON.parse(body.toString()).message }));
+		});
+
+		var new_tokens = await refresh_token(tokens.refresh_token)
+		.then(JSON.parse)
+		.then(function (new_tokens) {
+			console.log('fav:\n' + new_tokens);
+			tokens = new_tokens;
+			console.log("\n changed tokens:\n"+new_tokens);
+			return new_tokens;
+		})
+		.catch((error) => {
+			console.error(error);
+			return;
+		});
+	}
+
+	//fetch_and_notif_fav(tokens.access_token);
+	setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens);
+
+
+	app.get('/', function (req, res) {
+		res.status(200).sendFile("html/home.html", { root: "./public" });
+	});
+
+	app.post('/subscribe', (req, res) => {
+		console.log('/subscribe');
+		console.log(req.body);
+		var addsub = true;
+		if (req.body.content) {
+			subs.forEach(sub => {
+				if (JSON.stringify(sub) == req.body.content) {
+					addsub = false;
+				}
+			});
+			if (addsub) { // ajoute l'objet {endpoint:"", keys: {auth: "", p256dh: ""}} à subs et au fichier sub.json si il est non null et pas déjà abonné
+				subs.push(JSON.parse(req.body.content));
+
+				// convert JSON object to string
+				const data = JSON.stringify(subs);
+				// write JSON string to a file
+				fs.writeFile('subs.json', data, (err) => {
+					if (err) {
+						throw err;
+					}
+					console.log("subs JSON data is saved.");
 				});
 			}
 		}
-	}
-}
-//fetch_and_notif_fav(tokens.access_token);
-setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens.access_token);
-
-
-app.get('/', function (req, res) {
-	res.status(200).sendFile("html/home.html", { root: "./public" });
-});
-
-app.post('/subscribe', (req, res) => {
-	console.log('/subscribe');
-	console.log(req.body);
-	var addsub = true;
-	if (req.body.content) {
-		subs.forEach(sub => {
-			if (JSON.stringify(sub) == req.body.content) {
-				addsub = false;
-			}
-		});
-		if (addsub) { // ajoute l'objet {endpoint:"", keys: {auth: "", p256dh: ""}} à subs et au fichier sub.json si il est non null et pas déjà abonné
-			subs.push(JSON.parse(req.body.content));
-
-			// convert JSON object to string
-			const data = JSON.stringify(subs);
-			// write JSON string to a file
-			fs.writeFile('subs.json', data, (err) => {
-				if (err) {
-					throw err;
-				}
-				console.log("subs JSON data is saved.");
-			});
-		}
-	}
-	res.send(req.body);
-});
-
-
-// ****** Inutile ******
-
-app.post('/broadcast_notif', (req, res) => {
-	console.log('/broadcast_notif');
-	console.log(req.body);
-	console.log(subs);
-	subs.forEach(pushSubscription => {
-		webpush.sendNotification(pushSubscription, JSON.stringify({ title: "tgtg broadcast notif", body: "broadcast notif" }));
+		res.send(req.body);
 	});
-});
-
-app.get('/autrepage', function (req, res) {
-	var html = "<html>"
-	html += "<head>"
-	html += "<title>Page de formulaire</title>"
-	html += "</head>"
-	html += "<body>"
-	html += "<form action='/formulaire' method='POST'>"
-	html += "First Name: <input type='text' name='first_name'> <br>"
-	html += "Last Name: <input type='text' name='last_name'> <br>"
-	html += "<input type='submit' value='submit'>"
-	html += "</form>"
-	html += "</body>"
-	html += "</html>"
-
-	res.send(html);
-});
-
-app.post('/formulaire', function (req, res) {
-	response = {
-		first_name: req.body.first_name,
-		last_name: req.body.last_name
-	};
-	console.log(response);
-
-	//convert the response in JSON format
-	res.end(JSON.stringify(response));
-});
 
 
+	// ****** Inutile ******
 
-app.post('/login', function (req, res) {
-	console.log(req.body);
-	if (req.body.username == "Eclair" && req.body.password == "password") {
-		res.json({ success: true });
-	} else {
-		res.json({ success: false });
-	};
-});
+	app.post('/broadcast_notif', (req, res) => {
+		console.log('/broadcast_notif');
+		console.log(req.body);
+		console.log(subs);
+		subs.forEach(pushSubscription => {
+			webpush.sendNotification(pushSubscription, JSON.stringify({ title: "tgtg broadcast notif", body: "broadcast notif" }));
+		});
+	});
+
+	app.get('/autrepage', function (req, res) {
+		var html = "<html>"
+		html += "<head>"
+		html += "<title>Page de formulaire</title>"
+		html += "</head>"
+		html += "<body>"
+		html += "<form action='/formulaire' method='POST'>"
+		html += "First Name: <input type='text' name='first_name'> <br>"
+		html += "Last Name: <input type='text' name='last_name'> <br>"
+		html += "<input type='submit' value='submit'>"
+		html += "</form>"
+		html += "</body>"
+		html += "</html>"
+
+		res.send(html);
+	});
+
+	app.post('/formulaire', function (req, res) {
+		response = {
+			first_name: req.body.first_name,
+			last_name: req.body.last_name
+		};
+		console.log(response);
+
+		//convert the response in JSON format
+		res.end(JSON.stringify(response));
+	});
 
 
-var server = https.createServer({ key: fs.readFileSync('ssl/server.key'), cert: fs.readFileSync('ssl/server.crt') }, app);
-//var server = http.createServer(app);
 
-//app.listen(port);
+	app.post('/login', function (req, res) {
+		console.log(req.body);
+		if (req.body.username == "Eclair" && req.body.password == "password") {
+			res.json({ success: true });
+		} else {
+			res.json({ success: false });
+		};
+	});
 
-server.listen(process.env.PORT || 443, () => {
-	console.log(`App Started on PORT ${process.env.PORT || 443}`);
-});
+
+	var server = https.createServer({ key: fs.readFileSync('ssl/server.key'), cert: fs.readFileSync('ssl/server.crt') }, app);
+	//var server = http.createServer(app);
+
+	//app.listen(port);
+
+	server.listen(process.env.PORT || 443, () => {
+		console.log(`App Started on PORT ${process.env.PORT || 443}`);
+	});
 
 
 
