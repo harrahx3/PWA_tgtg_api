@@ -25,10 +25,21 @@ app.use('/pwa', express.static(path.join(__dirname, 'public', 'pwa')));
 app.use('/html', express.static(path.join(__dirname, 'public', 'html')));
 app.use('/sw.js', express.static(path.join(__dirname, 'sw.js')));
 
-
 app.use(favicon(path.join(__dirname, 'public', 'img', 'favicon.ico')));
 
 app.set('view engine', 'ejs');
+
+
+// read subs JSON object from subs.json file
+fs.readFile('subs.json', 'utf-8', (err, data) => {
+	if (err) {
+		throw err;
+	}
+	subs = JSON.parse(data.toString());
+
+	console.log("subs from subs.json: ")
+	console.log(subs);
+});
 
 // VAPID keys should only be generated only once.
 //const vapidKeys = webpush.generateVAPIDKeys();
@@ -36,7 +47,7 @@ const vapidKeys = {
 	publicKey: 'BDNJ4GGTFcWDLZdNtnkK-sQbs9L1KQd3J9pncDvIA_wcJTXjFtlnuJ9H2V4NXCoPM55eJK_3kCz8Tbz5IMKHIJU',
 	privateKey: 'g4VOzWzRpp_WIUNP0H-RcHclIj5HNLa6bGE21N043cA'
 }
-console.log(vapidKeys);
+console.log("vapidKeys:\n" + vapidKeys + '\n');
 
 //webpush.setGCMAPIKey('<Your GCM API Key Here>');
 webpush.setVapidDetails(
@@ -48,8 +59,8 @@ webpush.setVapidDetails(
 
 var subs = [];
 var tokens = {
-    "access_token": "",
-    "refresh_token": ""
+	access_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwNjE2MDMxLCJ0IjoiaHU2TW01MjBUMVN5UThOVXIybV8xZzowOjEifQ.P8S9yxcFCOIf_rg91xDt1GJUpmcypCTYHXFWyrMZNuc",
+	refresh_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjQxOTc5MjMxLCJ0IjoiR3lSNHIyd2xTUzZNWkZ5RHVZSWpTQTowOjAifQ.g9PzyyO9ogdL-I5F-riPgYS6NiYLC2Q3sUJ2RbkHe_0"
 };
 
 function refresh_token(old_refresh_token) {
@@ -66,13 +77,13 @@ function refresh_token(old_refresh_token) {
 		console.log(Date());
 		console.log('\n');
 		if (error) console.error(error);//throw new Error(error);
-		console.log(response.body);
+		console.log(response.body.substring(0, 100));
 		return response.body;
 	});
 
 }
 
-async function fetch_favorite(access_token) {
+function fetch_favorite(access_token) {
 	var options = {
 		'method': 'POST',
 		'url': 'https://apptoogoodtogo.com/api/item/v6/',
@@ -88,7 +99,7 @@ async function fetch_favorite(access_token) {
 		console.log(Date());
 		console.log('\n');
 		if (error) console.error(error);//throw new Error(error);
-		console.log(response.body);
+		console.log(response.body.substring(0, 200));
 		return response.body;
 	});
 }
@@ -97,15 +108,18 @@ async function fetch_favorite(access_token) {
 async function fetch_and_notif_fav(access_token) {
 	console.log('\n' + Date() + '\n');
 
-	var items = await fetch_favorite(access_token)
-		.then(JSON.parse)
-		.then(function (fav) {
-			return fav.items;
+	var items = await fetch_favorite(access_token);
+		//.then(JSON.parse)
+		/*.then(function (fav) {
+			console.log('fav:\n'+fav);
+			return fav["items"];
 		})
 		.catch((error) => {
 			console.error(error);
 			return;
-		});
+		});*/
+
+	console.log('\nitems:\n' + items);
 
 	stores_available = "";
 	for (let index = 0; index < items.length; index++) {
@@ -121,6 +135,8 @@ async function fetch_and_notif_fav(access_token) {
 		}
 	}
 }
+//fetch_and_notif_fav(tokens.access_token);
+setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens.access_token);
 
 
 app.get('/', function (req, res) {
@@ -130,8 +146,26 @@ app.get('/', function (req, res) {
 app.post('/subscribe', (req, res) => {
 	console.log('/subscribe');
 	console.log(req.body);
-	if ((!(JSON.parse(req.body.content) in subs))) {
-		subs.push(JSON.parse(req.body.content));
+	var addsub = true;
+	if (req.body.content) {
+		subs.forEach(sub => {
+			if (JSON.stringify(sub) == req.body.content) {
+				addsub = false;
+			}
+		});
+		if (addsub) { // ajoute l'objet {endpoint:"", keys: {auth: "", p256dh: ""}} à subs et au fichier sub.json si il est non null et pas déjà abonné
+			subs.push(JSON.parse(req.body.content));
+
+			// convert JSON object to string
+			const data = JSON.stringify(subs);
+			// write JSON string to a file
+			fs.writeFile('subs.json', data, (err) => {
+				if (err) {
+					throw err;
+				}
+				console.log("subs JSON data is saved.");
+			});
+		}
 	}
 	res.send(req.body);
 });
@@ -144,7 +178,7 @@ app.post('/broadcast_notif', (req, res) => {
 	console.log(req.body);
 	console.log(subs);
 	subs.forEach(pushSubscription => {
-		webpush.sendNotification(pushSubscription, 'Your Push Payload Text');
+		webpush.sendNotification(pushSubscription, JSON.stringify({ title: "tgtg broadcast notif", body: "broadcast notif" }));
 	});
 });
 

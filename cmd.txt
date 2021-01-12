@@ -1,0 +1,2 @@
+sudo node app.js >> app.log 2>&1 &
+sudo nohup  node app.js
