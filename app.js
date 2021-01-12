@@ -84,47 +84,52 @@ function refresh_token(old_refresh_token) {
 }
 
 function fetch_favorite(access_token) {
-	var options = {
-		'method': 'POST',
-		'url': 'https://apptoogoodtogo.com/api/item/v6/',
-		'headers': {
-			'Authorization': 'Bearer ' + access_token,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ "user_id": "9173126", "origin": { "latitude": 45.75190208790065, "longitude": 4.830272620720394 }, "radius": 30, "page_size": 100, "page": 1, "discover": false, "favorites_only": true, "item_categories": [], "diet_categories": [], "pickup_earliest": null, "pickup_latest": null, "search_phrase": null, "with_stock_only": false, "hidden_only": false, "we_care_only": false })
+	return new Promise((resolve, reject) => {
+		var options = {
+			'method': 'POST',
+			'url': 'https://apptoogoodtogo.com/api/item/v6/',
+			'headers': {
+				'Authorization': 'Bearer ' + access_token,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ "user_id": "9173126", "origin": { "latitude": 45.75190208790065, "longitude": 4.830272620720394 }, "radius": 30, "page_size": 100, "page": 1, "discover": false, "favorites_only": true, "item_categories": [], "diet_categories": [], "pickup_earliest": null, "pickup_latest": null, "search_phrase": null, "with_stock_only": false, "hidden_only": false, "we_care_only": false })
 
-	};
-	request(options, function (error, response) {
-		console.log('\n access favorite https://apptoogoodtogo.com/api/item/v6/');
-		console.log(Date());
-		console.log('\n');
-		if (error) console.error(error);//throw new Error(error);
-		console.log(response.body.substring(0, 200));
-		return response.body;
-	});
+		};
+		request(options, function (error, response) {
+			console.log('\n access favorite https://apptoogoodtogo.com/api/item/v6/');
+			console.log(Date());
+			console.log('\n');
+			if (error) console.error(error);//throw new Error(error);
+			console.log(response.body.substring(0, 200));
+			resolve(response.body);
+		});
+	})
 }
 
 
 async function fetch_and_notif_fav(access_token) {
 	console.log('\n' + Date() + '\n');
 
-	var items = await fetch_favorite(access_token);
-		//.then(JSON.parse)
-		/*.then(function (fav) {
-			console.log('fav:\n'+fav);
-			return fav["items"];
+	var items = await fetch_favorite(access_token)
+		.then(JSON.parse)
+		.then(function (fav) {
+			console.log('fav:\n' + fav);
+			return fav.items;
 		})
 		.catch((error) => {
 			console.error(error);
 			return;
-		});*/
+		});
 
 	console.log('\nitems:\n' + items);
+	console.log(items.length);
+	console.log(items[0]);
+	console.log(items[0].display_name);
 
 	stores_available = "";
 	for (let index = 0; index < items.length; index++) {
 		const store = items[index];
-		console.log(store.display_name + " => " + store.items_available);
+		console.log(store.item.item_id +" : " store.display_name + " => " + store.items_available);
 		if (store.items_available) {
 			stores_available = stores_available + "; " + store.display_name;
 			if (store.display_name.split(" ")[0] == "Pomponette") {
