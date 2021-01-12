@@ -30,17 +30,6 @@ app.use(favicon(path.join(__dirname, 'public', 'img', 'favicon.ico')));
 app.set('view engine', 'ejs');
 
 
-// read subs JSON object from subs.json file
-fs.readFile('subs.json', 'utf-8', (err, data) => {
-	if (err) {
-		throw err;
-	}
-	subs = JSON.parse(data.toString());
-
-	console.log("subs from subs.json: ")
-	console.log(subs);
-});
-
 // VAPID keys should only be generated only once.
 //const vapidKeys = webpush.generateVAPIDKeys();
 const vapidKeys = {
@@ -59,9 +48,31 @@ webpush.setVapidDetails(
 
 var subs = [];
 var tokens = {
-	access_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwNjE2MDMxLCJ0IjoiaHU2TW01MjBUMVN5UThOVXIybV8xZzowOjEifQ.P8S9yxcFCOIf_rg91xDt1GJUpmcypCTYHXFWyrMZNuc",
+	access_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwNjE2MDMxLCJ0IjoiaHU2TW01MjBUMVN5UThOVXIybV8xZzowOjEifQ.P8S9yxcFCOIf_rg91xDt1GJUpmcypCTYHXFWyrMZNuc_",
 	refresh_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjQxOTc5MjMxLCJ0IjoiR3lSNHIyd2xTUzZNWkZ5RHVZSWpTQTowOjAifQ.g9PzyyO9ogdL-I5F-riPgYS6NiYLC2Q3sUJ2RbkHe_0"
 };
+
+// read subs JSON object from subs.json file
+fs.readFile('subs.json', 'utf-8', (err, data) => {
+	if (err) {
+		console.error(err);
+	}
+	subs = JSON.parse(data.toString());
+
+	console.log("subs from subs.json: ")
+	console.log(subs);
+});
+
+// read subs JSON object from subs.json file
+fs.readFile('tokens.json', 'utf-8', (err, data) => {
+	if (err) {
+		console.error(err);
+	}
+	tokens = JSON.parse(data.toString());
+
+	console.log("tokens from tokens.json: ")
+	console.log(tokens);
+});
 
 function refresh_token(old_refresh_token) {
 	return new Promise((resolve, reject) => {
@@ -78,7 +89,7 @@ function refresh_token(old_refresh_token) {
 			console.log(Date());
 			console.log('\n');
 			if (error) console.error(error);//throw new Error(error);
-			console.log(response.body.substring(0, 100));
+			console.log(response.body.substring(0, 300));
 			resolve(response.body);
 		});
 	})
@@ -112,23 +123,27 @@ function fetch_favorite(access_token) {
 async function fetch_and_notif_fav() {
 	console.log('\n' + Date() + '\n');
 
-	var items = await fetch_favorite(tokens.access_token)
+	var response = await fetch_favorite(tokens.access_token)
 		.then(JSON.parse)
-		.then(function (fav) {
-			return fav.items;
+		.then(function (rep) {
+			console.log("fav: "+rep);
+			//if (rep.items) {
+			return rep;
+			//}
 		})
 		.catch((error) => {
 			console.error(error);
 			return;
 		});
 
-	console.log('\nitems:\n' + items);
+	console.log('\nitems:\n' + response);
 	//console.log(items.length);
 	//console.log(items[0]);
 	//console.log(items[0].display_name);
-
+	
 	stores_available = "";
-	if (items) {
+	if (response.items) {
+		var items=response.items;
 		for (let index = 0; index < items.length; index++) {
 			const store = items[index];
 			console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
@@ -141,10 +156,10 @@ async function fetch_and_notif_fav() {
 				}
 			}
 		}
-	} else if (JSON.parse(body.toString()).status == 401) {
+	} else if (response.status && response.status == 401) {
 		console.log("erreur 401 !");
 		subs.forEach(pushSubscription => {
-			webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'tgtg error !', body: JSON.parse(body.toString()).message }));
+			webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'tgtg error !', body: response.message }));
 		});
 
 		var new_tokens = await refresh_token(tokens.refresh_token)
@@ -152,6 +167,14 @@ async function fetch_and_notif_fav() {
 		.then(function (new_tokens) {
 			tokens = new_tokens;
 			console.log("\n changed tokens:\n"+new_tokens);
+			const data = JSON.stringify(new_tokens);
+			// write JSON string to a file
+			fs.writeFile('tokens.json', data, (err) => {
+				if (err) {
+					throw err;
+				}
+				console.log("tokens JSON data is saved.");
+			});
 			return new_tokens;
 		})
 		.catch((error) => {
