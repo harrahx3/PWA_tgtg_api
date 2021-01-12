@@ -115,7 +115,6 @@ async function fetch_and_notif_fav() {
 	var items = await fetch_favorite(tokens.access_token)
 		.then(JSON.parse)
 		.then(function (fav) {
-			console.log('fav:\n' + fav);
 			return fav.items;
 		})
 		.catch((error) => {
@@ -124,9 +123,9 @@ async function fetch_and_notif_fav() {
 		});
 
 	console.log('\nitems:\n' + items);
-	console.log(items.length);
-	console.log(items[0]);
-	console.log(items[0].display_name);
+	//console.log(items.length);
+	//console.log(items[0]);
+	//console.log(items[0].display_name);
 
 	stores_available = "";
 	if (items) {
@@ -143,6 +142,7 @@ async function fetch_and_notif_fav() {
 			}
 		}
 	} else if (JSON.parse(body.toString()).status == 401) {
+		console.log("erreur 401 !");
 		subs.forEach(pushSubscription => {
 			webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'tgtg error !', body: JSON.parse(body.toString()).message }));
 		});
@@ -150,7 +150,6 @@ async function fetch_and_notif_fav() {
 		var new_tokens = await refresh_token(tokens.refresh_token)
 		.then(JSON.parse)
 		.then(function (new_tokens) {
-			console.log('fav:\n' + new_tokens);
 			tokens = new_tokens;
 			console.log("\n changed tokens:\n"+new_tokens);
 			return new_tokens;
@@ -160,6 +159,7 @@ async function fetch_and_notif_fav() {
 			return;
 		});
 	}
+}
 
 	//fetch_and_notif_fav(tokens.access_token);
 	setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens);
