@@ -129,7 +129,7 @@ async function fetch_and_notif_fav(access_token) {
 	stores_available = "";
 	for (let index = 0; index < items.length; index++) {
 		const store = items[index];
-		console.log(store.item.item_id +" : " store.display_name + " => " + store.items_available);
+		console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
 		if (store.items_available) {
 			stores_available = stores_available + "; " + store.display_name;
 			if (store.display_name.split(" ")[0] == "Pomponette") {
