@@ -51,6 +51,8 @@ var tokens = {
 	access_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjEwNjE2MDMxLCJ0IjoiaHU2TW01MjBUMVN5UThOVXIybV8xZzowOjEifQ.P8S9yxcFCOIf_rg91xDt1GJUpmcypCTYHXFWyrMZNuc_",
 	refresh_token: "e30.eyJzdWIiOiI5MTczMTI2IiwiZXhwIjoxNjQxOTc5MjMxLCJ0IjoiR3lSNHIyd2xTUzZNWkZ5RHVZSWpTQTowOjAifQ.g9PzyyO9ogdL-I5F-riPgYS6NiYLC2Q3sUJ2RbkHe_0"
 };
+var already_pomponette = false;
+
 
 // read subs JSON object from subs.json file
 fs.readFile('subs.json', 'utf-8', (err, data) => {
@@ -126,7 +128,7 @@ async function fetch_and_notif_fav() {
 	var response = await fetch_favorite(tokens.access_token)
 		.then(JSON.parse)
 		.then(function (rep) {
-			console.log("fav: "+rep);
+			console.log("fav: " + rep);
 			//if (rep.items) {
 			return rep;
 			//}
@@ -140,21 +142,24 @@ async function fetch_and_notif_fav() {
 	//console.log(items.length);
 	//console.log(items[0]);
 	//console.log(items[0].display_name);
-	
+
 	stores_available = "";
 	if (response.items) {
-		var items=response.items;
+		var items = response.items;
 		for (let index = 0; index < items.length; index++) {
 			const store = items[index];
 			console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
 			if (store.items_available) {
 				stores_available = stores_available + "; " + store.display_name;
 				if (store.display_name.split(" ")[0] == "Pomponette") {
-					subs.forEach(pushSubscription => {
-						webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
-					});
+					if (!already_pomponette) {
+						subs.forEach(pushSubscription => {
+							webpush.sendNotification(pushSubscription, JSON.stringify({ title: 'fav tgtg available', body: "Panier Pomponette à sg !" }));
+						});
+					}
 				}
 			}
+			already_pomponette = Boolean(store.items_available);
 		}
 	} else if (response.status && response.status == 401) {
 		console.log("erreur 401 !");
@@ -163,122 +168,133 @@ async function fetch_and_notif_fav() {
 		});
 
 		var new_tokens = await refresh_token(tokens.refresh_token)
-		.then(JSON.parse)
-		.then(function (new_tokens) {
-			tokens = new_tokens;
-			console.log("\n changed tokens:\n"+new_tokens);
-			const data = JSON.stringify(new_tokens);
-			// write JSON string to a file
-			fs.writeFile('tokens.json', data, (err) => {
-				if (err) {
-					throw err;
-				}
-				console.log("tokens JSON data is saved.");
+			.then(JSON.parse)
+			.then(function (new_tokens) {
+				tokens = new_tokens;
+				console.log("\n changed tokens:\n" + new_tokens);
+				const data = JSON.stringify(new_tokens);
+				// write JSON string to a file
+				fs.writeFile('tokens.json', data, (err) => {
+					if (err) {
+						console.error(err);
+					}
+					console.log("tokens JSON data is saved.");
+				});
+				return new_tokens;
+			})
+			.catch((error) => {
+				console.error(error);
+				return;
 			});
-			return new_tokens;
-		})
-		.catch((error) => {
-			console.error(error);
-			return;
-		});
 	}
 }
 
-	setInterval(fetch_and_notif_fav, 20 * 60 * 1000);
+function repeat() {
+	var now = new Date();
+	if (now.getHours() > 8) {
+		fetch_and_notif_fav();
+	}
+	setTimeout(repeat, (Math.random() * 20 + 15) * 60 * 1000);
+}
+setTimeout(repeat, .2 * 60 * 1000);
+//setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens);
 
 
-	app.get('/', function (req, res) {
-		res.status(200).sendFile("html/home.html", { root: "./public" });
-	});
+app.get('/', function (req, res) {
+	res.status(200).sendFile("html/home.html", { root: "./public" });
+});
 
-	app.post('/subscribe', (req, res) => {
-		console.log('/subscribe');
-		console.log(req.body);
-		var addsub = true;
-		if (req.body.content) {
-			subs.forEach(sub => {
-				if (JSON.stringify(sub) == req.body.content) {
-					addsub = false;
-				}
-			});
-			if (addsub) { // ajoute l'objet {endpoint:"", keys: {auth: "", p256dh: ""}} à subs et au fichier sub.json si il est non null et pas déjà abonné
-				subs.push(JSON.parse(req.body.content));
-
-				// convert JSON object to string
-				const data = JSON.stringify(subs);
-				// write JSON string to a file
-				fs.writeFile('subs.json', data, (err) => {
-					if (err) {
-						throw err;
-					}
-					console.log("subs JSON data is saved.");
-				});
+app.post('/subscribe', (req, res) => {
+	console.log('/subscribe');
+	console.log(req.body);
+	var addsub = true;
+	if (req.body.content) {
+		subs.forEach(sub => {
+			if (JSON.stringify(sub) == req.body.content) {
+				addsub = false;
 			}
-		}
-		res.send(req.body);
-	});
-
-
-	// ****** Inutile ******
-
-	app.post('/broadcast_notif', (req, res) => {
-		console.log('/broadcast_notif');
-		console.log(req.body);
-		console.log(subs);
-		subs.forEach(pushSubscription => {
-			webpush.sendNotification(pushSubscription, JSON.stringify({ title: "tgtg broadcast notif", body: "broadcast notif" }));
 		});
+		if (addsub) { // ajoute l'objet {endpoint:"", keys: {auth: "", p256dh: ""}} à subs et au fichier sub.json si il est non null et pas déjà abonné
+			subs.push(JSON.parse(req.body.content));
+
+			// convert JSON object to string
+			const data = JSON.stringify(subs);
+			// write JSON string to a file
+			fs.writeFile('subs.json', data, (err) => {
+				if (err) {
+					throw err;
+				}
+				console.log("subs JSON data is saved.");
+			});
+		}
+	}
+	res.send(req.body);
+});
+
+
+// ****** Inutile ******
+
+app.post('/broadcast_notif', (req, res) => {
+	console.log('/broadcast_notif');
+	console.log(req.body);
+	console.log(subs);
+	subs.forEach(pushSubscription => {
+		webpush.sendNotification(pushSubscription, JSON.stringify({ title: "tgtg broadcast notif", body: "broadcast notif" }));
 	});
+});
 
-	app.get('/autrepage', function (req, res) {
-		var html = "<html>"
-		html += "<head>"
-		html += "<title>Page de formulaire</title>"
-		html += "</head>"
-		html += "<body>"
-		html += "<form action='/formulaire' method='POST'>"
-		html += "First Name: <input type='text' name='first_name'> <br>"
-		html += "Last Name: <input type='text' name='last_name'> <br>"
-		html += "<input type='submit' value='submit'>"
-		html += "</form>"
-		html += "</body>"
-		html += "</html>"
+app.get('/autrepage', function (req, res) {
+	var html = "<html>"
+	html += "<head>"
+	html += "<title>Page de formulaire</title>"
+	html += "</head>"
+	html += "<body>"
+	html += "<form action='/formulaire' method='POST'>"
+	html += "First Name: <input type='text' name='first_name'> <br>"
+	html += "Last Name: <input type='text' name='last_name'> <br>"
+	html += "<input type='submit' value='submit'>"
+	html += "</form>"
+	html += "</body>"
+	html += "</html>"
 
-		res.send(html);
-	});
+	res.send(html);
+});
 
-	app.post('/formulaire', function (req, res) {
-		response = {
-			first_name: req.body.first_name,
-			last_name: req.body.last_name
-		};
-		console.log(response);
+app.post('/formulaire', function (req, res) {
+	response = {
+		first_name: req.body.first_name,
+		last_name: req.body.last_name
+	};
+	console.log(response);
 
-		//convert the response in JSON format
-		res.end(JSON.stringify(response));
-	});
+	//convert the response in JSON format
+	res.end(JSON.stringify(response));
+});
 
-
-
-	app.post('/login', function (req, res) {
-		console.log(req.body);
-		if (req.body.username == "Eclair" && req.body.password == "password") {
-			res.json({ success: true });
-		} else {
-			res.json({ success: false });
-		};
-	});
+app.post('/login', function (req, res) {
+	console.log(req.body);
+	if (req.body.username == "Eclair" && req.body.password == "password") {
+		res.json({ success: true });
+	} else {
+		res.json({ success: false });
+	};
+});
 
 
-	var server = https.createServer({ key: fs.readFileSync('ssl/server.key'), cert: fs.readFileSync('ssl/server.crt') }, app);
-	//var server = http.createServer(app);
+var server = https.createServer({ key: fs.readFileSync('ssl/server.key'), cert: fs.readFileSync('ssl/server.crt') }, app);
+//var server = http.createServer(app);
 
-	//app.listen(port);
+//app.listen(port);
 
-	server.listen(process.env.PORT || 443, () => {
-		console.log(`App Started on PORT ${process.env.PORT || 443}`);
-	});
+server.listen(process.env.PORT || 443, () => {
+	console.log(`App Started on PORT ${process.env.PORT || 443}`);
+});
 
+// redirect HTTP server
+const httpApp = express();
+httpApp.all('*', (req, res) => res.redirect(300, 'https://localhost'));
+const httpServer = http.createServer(httpApp);
+httpServer.listen(80, () => console.log(`HTTP server listening: http://localhost`));
 
 
 /*
