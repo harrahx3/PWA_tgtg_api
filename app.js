@@ -184,8 +184,7 @@ async function fetch_and_notif_fav() {
 	}
 }
 
-	//fetch_and_notif_fav(tokens.access_token);
-	setInterval(fetch_and_notif_fav, .3 * 60 * 1000, tokens);
+	setInterval(fetch_and_notif_fav, 20 * 60 * 1000);
 
 
 	app.get('/', function (req, res) {
