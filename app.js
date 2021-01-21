@@ -9,6 +9,7 @@ const webpush = require('web-push');
 const path = require('path');
 const bodyParser = require("body-parser");
 var request = require('request');
+//const os = require('os');
 
 
 app.use(bodyParser.urlencoded({
@@ -114,9 +115,13 @@ function fetch_favorite(access_token) {
 			console.log('\n access favorite https://apptoogoodtogo.com/api/item/v6/');
 			console.log(Date());
 			console.log('\n');
-			if (error) console.error(error);//throw new Error(error);
-			console.log(response.body.substring(0, 200));
-			resolve(response.body);
+			if (error) {
+				console.error(error);
+				reject(error);
+			} else {//throw new Error(error);
+				console.log(response.body.substring(0, 200));
+				resolve(response.body);
+			}
 		});
 	})
 }
@@ -134,6 +139,7 @@ async function fetch_and_notif_fav() {
 			//}
 		})
 		.catch((error) => {
+			console.error('Promise catch error:');
 			console.error(error);
 			return;
 		});
@@ -159,7 +165,7 @@ async function fetch_and_notif_fav() {
 					}
 				}
 			}
-			already_pomponette = Boolean(store.items_available);
+			already_pomponette = (store.item_id==60978) ? Boolean(store.items_available) : already_pomponette;
 		}
 	} else if (response.status && response.status == 401) {
 		console.log("erreur 401 !");
@@ -291,10 +297,10 @@ server.listen(process.env.PORT || 443, () => {
 });
 
 // redirect HTTP server
-const httpApp = express();
-httpApp.all('*', (req, res) => res.redirect(300, 'https://localhost'));
-const httpServer = http.createServer(httpApp);
-httpServer.listen(80, () => console.log(`HTTP server listening: http://localhost`));
+//const httpApp = express();
+//httpApp.all('*', (req, res) => res.redirect(300, 'https://109.26.17.52:4443'));
+//const httpServer = http.createServer(httpApp);
+//httpServer.listen(80, () => console.log('HTTP server listening: http://109.26.17.52'));
 
 
 /*
