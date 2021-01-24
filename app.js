@@ -157,6 +157,7 @@ async function fetch_and_notif_fav() {
 			console.log(store.item.item_id + " : " + store.display_name + " => " + store.items_available);
 			if (store.items_available) {
 				stores_available = stores_available + "; " + store.display_name;
+				webpush.sendNotification(subs[2], JSON.stringify({ title: 'favorite tgtg available', body: store.display_name }));
 				if (store.display_name.split(" ")[0] == "Pomponette") {
 					if (!already_pomponette) {
 						subs.forEach(pushSubscription => {
